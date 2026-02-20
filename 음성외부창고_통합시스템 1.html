@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>음성외부창고 - 통합 관리 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* 공통 스타일 */
+        .page-transition {
+            transition: all 0.3s ease-in-out;
+        }
+        .page-hidden {
+            display: none !important;
+        }
+        .page-visible {
+            display: block;
+        }
+        /* 네비게이션 스타일 - 마우스 커서 개선 */
+        .nav-tab {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s;
+            cursor: pointer;
+            user-select: none;
+        }
+        .nav-tab.active {
+            background-color: #2563eb;
+            color: white;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        .nav-tab.inactive {
+            background-color: #f3f4f6;
+            color: #6b7280;
+        }
+        .nav-tab.inactive:hover {
+            background-color: #e5e7eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        /* 업로드 페이지 스타일 */
+        .tab-button {
+            border-bottom: 2px solid transparent;
+            padding: 8px 4px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6B7280;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .tab-button:hover {
+            color: #374151;
+            border-bottom-color: #D1D5DB;
+        }
+        .tab-button.active {
+            border-bottom-color: #3B82F6;
+            color: #2563EB;
+        }
+        .badge {
+            margin-left: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            border-radius: 9999px;
+        }
+        .badge.required {
+            background-color: #FEE2E2;
+            color: #991B1B;
+        }
+        .badge.optional {
+            background-color: #FEF3C7;
+            color: #92400E;
+        }
+        .badge.spot {
+            background-color: #EDE9FE;
+            color: #6B21A8;
+        }
+        /* 대시보드 스타일 */
+        .dashboard-container {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .dashboard-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 20px;
+        }
+        .dashboard-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .control-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .control-select {
+            padding: 8px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 0.9em;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .control-select:hover {
+            border-color: #667eea;
+        }
+        .control-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .control-select:disabled {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+        .current-period {
+            background: linear-gradient(90deg, #e3f2fd, #bbdefb);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            text-align: center;
+            border-left: 4px solid #2196f3;
+        }
+        .current-period.forecast {
+            background: linear-gradient(90deg, #fff3e0, #ffe0b2);
+            border-left-color: #ff9800;
+        }
+        .current-period.no-data {
+            background: linear-gradient(90deg, #fafafa, #f5f5f5);
+            border-left-color: #9e9e9e;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card.forecast {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+        }
+        .stat-card.no-data {
+            background: linear-gradient(135deg, #9e9e9e 0%, #757575 100%);
+        }
+        .stat-number {
+            font-size: 2.2em;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .stat-label {
+            font-size: 1em;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+        .customer-section {
+            margin-bottom: 40px;
+        }
+        .section-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        .customer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .customer-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        .customer-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+        }
+        .customer-card.hidden {
+            display: none;
+        }
+        .customer-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 8px;
+        }
+        .customer-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .customer-stat {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .customer-stat-label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .customer-stat-value {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+        }
+        .profit-positive {
+            color: #28a745;
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .summary-table th {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .summary-table td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .summary-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .summary-table tr.hidden {
+            display: none;
+        }
+        .month-comparison {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .comparison-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .comparison-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .comparison-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .comparison-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .comparison-change {
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        .change-positive {
+            color: #28a745;
+        }
+        .highlight {
+            background: linear-gradient(90deg, #fff3cd, #ffeaa7);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+        .highlight.forecast {
+            background: linear-gradient(90deg, #fff3e0, #ffe0b2);
+            border-left-color: #ff9800;
+        }
+        .highlight.no-data {
+            background: linear-gradient(90deg, #fafafa, #f5f5f5);
+            border-left-color: #9e9e9e;
+        }
+        .success-message {
+            background: linear-gradient(90deg, #d4edda, #c3e6cb);
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .export-btn {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .export-btn:hover {
+            background: linear-gradient(135deg, #218838, #1e7e34);
+            transform: translateY(-2px);
+        }
+        .close-btn {
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .close-btn:hover {
+            background: linear-gradient(135deg, #5a6268, #343a40);
+            transform: translateY(-2px);
+        }
+        /* 차트 컨테이너 스타일 */
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+        }
+        /* 데이터 없음 표시 */
+        .no-data-message {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-size: 1.1em;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 네비게이션 헤더 -->
+    <div class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">🏢 음성외부창고 통합 관리 시스템</h1>
+                </div>
+                <div class="flex space-x-4">
+                    <div id="nav-upload" class="nav-tab active" onclick="showPage('upload')">
+                        📁 파일 업로드
+                    </div>
+                    <div id="nav-dashboard" class="nav-tab inactive" onclick="showPage('dashboard')">
+                        📊 대시보드
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 업로드 페이지 -->
+    <div id="upload-page" class="page-transition page-visible">
+        <div class="max-w-6xl mx-auto px-4 py-8">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">📁 음성외부창고 데이터 업로드 센터</h2>
+                
+                <!-- 업로드 모드 선택 -->
+                <div class="mb-6">
+                    <div class="flex items-center space-x-6">
+                        <label class="flex items-center">
+                            <input type="radio" name="upload-mode" value="single" class="text-blue-600" checked onchange="toggleUploadMode()">
+                            <span class="ml-2 text-sm font-medium text-gray-700">개별 업로드</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="upload-mode" value="batch" class="text-blue-600" onchange="toggleUploadMode()">
+                            <span class="ml-2 text-sm font-medium text-gray-700">일괄 업로드 (최대 4개 파일)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 개별 업로드 모드 -->
+                <div id="single-upload-mode">
+                    <!-- 탭 메뉴 -->
+                    <div class="border-b border-gray-200 mb-6">
+                        <nav class="-mb-px flex space-x-8">
+                            <button onclick="switchTab('work')" class="tab-button active" data-tab="work">
+                                📋 작업내역 <span class="badge required">필수</span>
+                            </button>
+                            <button onclick="switchTab('pricing')" class="tab-button" data-tab="pricing">
+                                💰 단가표 <span class="badge required">필수</span>
+                            </button>
+                            <button onclick="switchTab('dispatch')" class="tab-button" data-tab="dispatch">
+                                🚛 배차내역 <span class="badge optional">선택</span>
+                            </button>
+                            <button onclick="switchTab('misc')" class="tab-button" data-tab="misc">
+                                📊 기타 발생내역 <span class="badge spot">스팟</span>
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- 파일 업로드 영역 -->
+                    <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors"
+                         ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+                        <svg class="mx-auto h-16 w-16 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 515.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <div class="mt-4">
+                            <label for="file-upload" class="cursor-pointer">
+                                <span class="text-lg font-medium text-gray-900 block">
+                                    📁 파일을 드래그하거나 클릭하여 업로드
+                                </span>
+                                <input id="file-upload" type="file" class="sr-only" accept=".xlsx,.xls,.csv" onchange="handleFileSelect(event)">
+                            </label>
+                            <p class="mt-2 text-sm text-gray-500">Excel(.xlsx, .xls) 또는 CSV 파일, 최대 10MB</p>
+                        </div>
+                    </div>
+
+                    <!-- 파일 선택 완료 -->
+                    <div id="file-selected" class="hidden bg-green-50 border-2 border-green-200 rounded-lg p-6 mt-6">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <svg class="h-12 w-12 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                <div class="ml-4">
+                                    <h3 class="text-lg font-medium text-green-800">✅ 파일이 선택되었습니다!</h3>
+                                    <p class="text-sm text-green-700">
+                                        <span id="selected-file-name" class="font-medium"></span>
+                                        <span id="selected-file-size" class="ml-2"></span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex space-x-3">
+                                <button onclick="previewFile()" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">👁️ 미리보기</button>
+                                <button onclick="removeFile()" class="px-4 py-2 border border-red-300 rounded-md text-sm font-medium text-red-700 bg-white hover:bg-red-50">🗑️ 제거</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 일괄 업로드 모드 -->
+                <div id="batch-upload-mode" class="hidden">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">📦 4개 파일 동시 업로드</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <!-- 작업내역 -->
+                        <div class="bg-gray-50 p-4 rounded-lg border">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-medium text-gray-800">📋 작업내역</h4>
+                                <span class="badge required">필수</span>
+                            </div>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                                 ondrop="handleBatchDrop(event, 'work')" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+                                <svg class="mx-auto h-8 w-8 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 515.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <label for="batch-work-upload" class="cursor-pointer">
+                                    <span class="text-sm font-medium text-gray-700">작업내역 파일</span>
+                                    <input id="batch-work-upload" type="file" class="sr-only" accept=".xlsx,.xls,.csv" onchange="handleBatchFileSelect(event, 'work')">
+                                </label>
+                            </div>
+                            <div id="batch-work-selected" class="hidden mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-sm font-medium text-green-800" id="batch-work-name"></div>
+                                        <div class="text-xs text-green-600" id="batch-work-size"></div>
+                                    </div>
+                                    <button onclick="removeBatchFile('work')" class="text-red-500 hover:text-red-700">×</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 단가표 -->
+                        <div class="bg-gray-50 p-4 rounded-lg border">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-medium text-gray-800">💰 단가표</h4>
+                                <span class="badge required">필수</span>
+                            </div>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                                 ondrop="handleBatchDrop(event, 'pricing')" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+                                <svg class="mx-auto h-8 w-8 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 515.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <label for="batch-pricing-upload" class="cursor-pointer">
+                                    <span class="text-sm font-medium text-gray-700">단가표 파일</span>
+                                    <input id="batch-pricing-upload" type="file" class="sr-only" accept=".xlsx,.xls,.csv" onchange="handleBatchFileSelect(event, 'pricing')">
+                                </label>
+                            </div>
+                            <div id="batch-pricing-selected" class="hidden mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-sm font-medium text-green-800" id="batch-pricing-name"></div>
+                                        <div class="text-xs text-green-600" id="batch-pricing-size"></div>
+                                    </div>
+                                    <button onclick="removeBatchFile('pricing')" class="text-red-500 hover:text-red-700">×</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 배차내역 -->
+                        <div class="bg-gray-50 p-4 rounded-lg border">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-medium text-gray-800">🚛 배차내역</h4>
+                                <span class="badge optional">선택</span>
+                            </div>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                                 ondrop="handleBatchDrop(event, 'dispatch')" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+                                <svg class="mx-auto h-8 w-8 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 515.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <label for="batch-dispatch-upload" class="cursor-pointer">
+                                    <span class="text-sm font-medium text-gray-700">배차내역 파일</span>
+                                    <input id="batch-dispatch-upload" type="file" class="sr-only" accept=".xlsx,.xls,.csv" onchange="handleBatchFileSelect(event, 'dispatch')">
+                                </label>
+                            </div>
+                            <div id="batch-dispatch-selected" class="hidden mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-sm font-medium text-green-800" id="batch-dispatch-name"></div>
+                                        <div class="text-xs text-green-600" id="batch-dispatch-size"></div>
+                                    </div>
+                                    <button onclick="removeBatchFile('dispatch')" class="text-red-500 hover:text-red-700">×</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 기타 발생내역 -->
+                        <div class="bg-gray-50 p-4 rounded-lg border">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-medium text-gray-800">📊 기타 발생내역</h4>
+                                <span class="badge spot">스팟</span>
+                            </div>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                                 ondrop="handleBatchDrop(event, 'misc')" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+                                <svg class="mx-auto h-8 w-8 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 515.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <label for="batch-misc-upload" class="cursor-pointer">
+                                    <span class="text-sm font-medium text-gray-700">기타 발생내역</span>
+                                    <input id="batch-misc-upload" type="file" class="sr-only" accept=".xlsx,.xls,.csv" onchange="handleBatchFileSelect(event, 'misc')">
+                                </label>
+                            </div>
+                            <div id="batch-misc-selected" class="hidden mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-sm font-medium text-green-800" id="batch-misc-name"></div>
+                                        <div class="text-xs text-green-600" id="batch-misc-size"></div>
+                                    </div>
+                                    <button onclick="removeBatchFile('misc')" class="text-red-500 hover:text-red-700">×</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 업로드 상태 -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                        <h4 class="font-medium text-gray-900 mb-3">📈 업로드 상태</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                            <div class="flex items-center">
+                                <span id="status-work" class="w-3 h-3 rounded-full bg-red-500 mr-2"></span>
+                                <span>작업내역: 미선택</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span id="status-pricing" class="w-3 h-3 rounded-full bg-red-500 mr-2"></span>
+                                <span>단가표: 미선택</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span id="status-dispatch" class="w-3 h-3 rounded-full bg-yellow-500 mr-2"></span>
+                                <span>배차내역: 선택사항</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span id="status-misc" class="w-3 h-3 rounded-full bg-purple-500 mr-2"></span>
+                                <span>기타내역: 스팟</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 템플릿 다운로드 -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h3 class="text-sm font-medium text-blue-800 mb-3">📥 템플릿 다운로드</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <button onclick="downloadTemplate('work')" class="text-sm font-medium text-blue-600 underline hover:text-blue-800">📋 작업내역 템플릿</button>
+                        <button onclick="downloadTemplate('pricing')" class="text-sm font-medium text-blue-600 underline hover:text-blue-800">💰 단가표 템플릿</button>
+                        <button onclick="downloadTemplate('dispatch')" class="text-sm font-medium text-blue-600 underline hover:text-blue-800">🚛 배차내역 템플릿</button>
+                        <button onclick="downloadTemplate('misc')" class="text-sm font-medium text-blue-600 underline hover:text-blue-800">📊 기타 발생내역 템플릿</button>
+                    </div>
+                </div>
+
+                <!-- 업로드 버튼 -->
+                <div class="flex justify-end space-x-3">
+                    <button id="preview-btn" onclick="previewFile()" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50" disabled>👁️ 미리보기</button>
+                    <button id="upload-btn" onclick="startUpload()" class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700" disabled>
+                        <span id="upload-btn-text">🚀 업로드 시작</span>
+                    </button>
+                </div>
+
+                <!-- 업로드 진행률 -->
+                <div id="upload-progress" class="hidden mt-6 bg-white border border-gray-200 rounded-lg p-6">
+                    <h4 class="text-lg font-medium text-gray-900 mb-4">⏳ 업로드 진행 중...</h4>
+                    <div class="mb-4">
+                        <div class="flex justify-between text-sm text-gray-600 mb-1">
+                            <span>진행률</span>
+                            <span id="progress-percent">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div id="progress-status" class="text-sm text-gray-600">파일 업로드 중...</div>
+                </div>
+
+                <!-- 업로드 완료 -->
+                <div id="upload-complete" class="hidden mt-6 bg-green-50 border border-green-200 rounded-lg p-6">
+                    <div class="flex items-center mb-4">
+                        <svg class="h-8 w-8 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-green-800">🎉 업로드 완료!</h3>
+                    </div>
+                    <div class="mb-4">
+                        <p class="text-sm text-green-700" id="upload-result-text">데이터가 성공적으로 업로드되었습니다.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick="showPage('dashboard')" class="px-4 py-2 bg-green-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-green-700">📊 대시보드 보기</button>
+                        <button onclick="viewLog()" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">📋 상세 로그</button>
+                        <button onclick="resetUpload()" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">🔄 추가 업로드</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 대시보드 페이지 -->
+    <div id="dashboard-page" class="page-transition page-hidden dashboard-container">
+        <div class="dashboard-content">
+            <div class="dashboard-header">
+                <h1>🏢 음성외부창고 매출/원가 분석 대시보드</h1>
+                
+                <!-- 월별 선택 컨트롤 -->
+                <div class="dashboard-controls">
+                    <div class="control-group">
+                        <div class="control-label">📅 연도 선택</div>
+                        <select class="control-select" id="dashboard-year-select" onchange="updateDashboard()">
+                            <option value="2026">2026년</option>
+                            <option value="2025">2025년</option>
+                            <option value="2024" disabled>2024년 (데이터 없음)</option>
+                            <option value="2023" disabled>2023년 (데이터 없음)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">📊 월 선택</div>
+                        <select class="control-select" id="dashboard-month-select" onchange="updateDashboard()">
+                            <option value="all">전체 월</option>
+                            <option value="01" selected>1월</option>
+                            <option value="02">2월</option>
+                            <option value="03">3월 (예상)</option>
+                            <option value="04" disabled>4월 (데이터 없음)</option>
+                            <option value="05" disabled>5월 (데이터 없음)</option>
+                            <option value="06" disabled>6월 (데이터 없음)</option>
+                            <option value="07" disabled>7월 (데이터 없음)</option>
+                            <option value="08" disabled>8월 (데이터 없음)</option>
+                            <option value="09" disabled>9월 (데이터 없음)</option>
+                            <option value="10" disabled>10월 (데이터 없음)</option>
+                            <option value="11" disabled>11월 (데이터 없음)</option>
+                            <option value="12" disabled>12월 (데이터 없음)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">🏪 고객사 필터</div>
+                        <select class="control-select" id="dashboard-customer-select" onchange="updateDashboard()">
+                            <option value="all">전체 고객사</option>
+                            <option value="foodville">푸드빌</option>
+                            <option value="heungguk">흥국</option>
+                            <option value="wakebarney">웨이크버니</option>
+                            <option value="gff">지에프에프지</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="current-period" id="dashboard-current-period-container">
+                    <strong id="dashboard-current-period">📊 2026년 1월 데이터 (전체 고객사)</strong>
+                </div>
+                <div class="update-time">📅 데이터 업데이트: <span id="dashboard-last-update"></span></div>
+                
+                <div class="success-message" id="dashboard-success-message">
+                    <strong>✅ 업로드 완료!</strong> 데이터가 성공적으로 업로드되어 대시보드에 반영되었습니다.
+                    <br><small>💰 금액 단위: 억원 (소수점 둘째 자리까지 표시)</small>
+                </div>
+            </div>
+
+            <!-- 일자별 작업 현황 그래프 섹션 -->
+            <div class="customer-section" id="charts-section">
+                <div class="section-title">📈 일자별 작업 현황 분석</div>
+                
+                <!-- 그래프 컨테이너 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- 입고/출고 현황 차트 -->
+                    <div class="chart-container">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">📦 일자별 입고/출고 현황</h3>
+                        <canvas id="inOutChart" width="400" height="200"></canvas>
+                    </div>
+                    
+                    <!-- 재고 현황 차트 -->
+                    <div class="chart-container">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">📊 고객사별 일자별 재고 현황 (총 누적량)</h3>
+                        <canvas id="stockChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 고객사별 작업량 비교 -->
+                <div class="chart-container mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">🏪 고객사별 월별 누적 작업량 비교</h3>
+                    <canvas id="customerWorkChart" width="800" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- 데이터 없음 메시지 -->
+            <div class="no-data-message hidden" id="no-data-section">
+                <h3>📋 선택한 기간의 데이터가 없습니다</h3>
+                <p>다른 연도나 월을 선택해주세요.</p>
+            </div>
+
+            <!-- 전월 대비 비교 -->
+            <div class="month-comparison" id="comparison-section">
+                <div class="comparison-title">📈 전월 대비 변화</div>
+                <div class="comparison-stats">
+                    <div class="comparison-item">
+                        <div class="comparison-value">매출</div>
+                        <div class="comparison-change change-positive" id="revenue-change">+15.2% ↗️</div>
+                    </div>
+                    <div class="comparison-item">
+                        <div class="comparison-value">원가</div>
+                        <div class="comparison-change change-positive" id="cost-change">+10.4% ↗️</div>
+                    </div>
+                    <div class="comparison-item">
+                        <div class="comparison-value">이익</div>
+                        <div class="comparison-change change-positive" id="profit-change">+28.9% ↗️</div>
+                    </div>
+                    <div class="comparison-item">
+                        <div class="comparison-value">이익률</div>
+                        <div class="comparison-change change-positive" id="rate-change">+1.8%p ↗️</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 전체 요약 -->
+            <div class="stats" id="stats-section">
+                <div class="stat-card" id="revenue-card">
+                    <div class="stat-number" id="dashboard-total-revenue">0.92억원</div>
+                    <div class="stat-label">📈 총 매출</div>
+                </div>
+                <div class="stat-card" id="cost-card">
+                    <div class="stat-number" id="dashboard-total-cost">0.77억원</div>
+                    <div class="stat-label">📊 총 원가</div>
+                </div>
+                <div class="stat-card" id="profit-card">
+                    <div class="stat-number" id="dashboard-total-profit">0.15억원</div>
+                    <div class="stat-label">💰 총 이익</div>
+                </div>
+                <div class="stat-card" id="rate-card">
+                    <div class="stat-number" id="dashboard-profit-rate">16.1%</div>
+                    <div class="stat-label">📋 평균 이익률</div>
+                </div>
+            </div>
+
+            <!-- 고객사별 상세 분석 -->
+            <div class="customer-section" id="customer-analysis-section">
+                <div class="section-title">🏪 고객사별 매출/원가 분석</div>
+                <div class="customer-grid" id="dashboard-customer-grid">
+                    <!-- 푸드빌 -->
+                    <div class="customer-card" data-customer="foodville">
+                        <div class="customer-name">🍽️ 푸드빌</div>
+                        <div class="customer-stats">
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">매출</div>
+                                <div class="customer-stat-value">0.50억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">원가</div>
+                                <div class="customer-stat-value">0.42억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">이익</div>
+                                <div class="customer-stat-value profit-positive">0.08억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">이익률</div>
+                                <div class="customer-stat-value profit-positive">16.9%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 흥국 -->
+                    <div class="customer-card" data-customer="heungguk">
+                        <div class="customer-name">🏢 흥국</div>
+                        <div class="customer-stats">
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">매출</div>
+                                <div class="customer-stat-value">0.20억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">원가</div>
+                                <div class="customer-stat-value">0.17억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">이익</div>
+                                <div class="customer-stat-value profit-positive">0.03억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">이익률</div>
+                                <div class="customer-stat-value profit-positive">15.8%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 웨이크버니 -->
+                    <div class="customer-card" data-customer="wakebarney">
+                        <div class="customer-name">🥖 웨이크버니</div>
+                        <div class="customer-stats">
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">매출</div>
+                                <div class="customer-stat-value">0.15억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">원가</div>
+                                <div class="customer-stat-value">0.12억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">이익</div>
+                                <div class="customer-stat-value profit-positive">0.03억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">이익률</div>
+                                <div class="customer-stat-value profit-positive">16.4%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 지에프에프지 -->
+                    <div class="customer-card" data-customer="gff">
+                        <div class="customer-name">🏭 지에프에프지</div>
+                        <div class="customer-stats">
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">매출</div>
+                                <div class="customer-stat-value">0.07억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">원가</div>
+                                <div class="customer-stat-value">0.06억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">이익</div>
+                                <div class="customer-stat-value profit-positive">0.01억원</div>
+                            </div>
+                            <div class="customer-stat">
+                                <div class="customer-stat-label">이익률</div>
+                                <div class="customer-stat-value profit-positive">11.2%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 고객사별 요약 테이블 -->
+            <div class="customer-section" id="summary-table-section">
+                <div class="section-title">📊 고객사별 요약 테이블</div>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>고객사</th>
+                            <th>매출 (억원)</th>
+                            <th>원가 (억원)</th>
+                            <th>이익 (억원)</th>
+                            <th>이익률 (%)</th>
+                            <th>매출 비중 (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashboard-summary-table-body">
+                        <tr data-customer="foodville">
+                            <td><strong>🍽️ 푸드빌</strong></td>
+                            <td>0.50</td>
+                            <td>0.42</td>
+                            <td class="profit-positive"><strong>0.08</strong></td>
+                            <td class="profit-positive"><strong>16.9%</strong></td>
+                            <td>54.3%</td>
+                        </tr>
+                        <tr data-customer="heungguk">
+                            <td><strong>🏢 흥국</strong></td>
+                            <td>0.20</td>
+                            <td>0.17</td>
+                            <td class="profit-positive"><strong>0.03</strong></td>
+                            <td class="profit-positive"><strong>15.8%</strong></td>
+                            <td>21.7%</td>
+                        </tr>
+                        <tr data-customer="wakebarney">
+                            <td><strong>🥖 웨이크버니</strong></td>
+                            <td>0.15</td>
+                            <td>0.12</td>
+                            <td class="profit-positive"><strong>0.03</strong></td>
+                            <td class="profit-positive"><strong>16.4%</strong></td>
+                            <td>16.3%</td>
+                        </tr>
+                        <tr data-customer="gff">
+                            <td><strong>🏭 지에프에프지</strong></td>
+                            <td>0.07</td>
+                            <td>0.06</td>
+                            <td class="profit-positive"><strong>0.01</strong></td>
+                            <td class="profit-positive"><strong>11.2%</strong></td>
+                            <td>7.7%</td>
+                        </tr>
+                        <tr style="background-color: #f8f9fa; font-weight: bold;">
+                            <td><strong>📈 합계</strong></td>
+                            <td><strong>0.92</strong></td>
+                            <td><strong>0.77</strong></td>
+                            <td class="profit-positive"><strong>0.15</strong></td>
+                            <td class="profit-positive"><strong>16.1%</strong></td>
+                            <td><strong>100.0%</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 주요 인사이트 -->
+            <div class="highlight" id="insights-section">
+                <h3 id="insights-title">📋 주요 인사이트 (2026년 1월 기준)</h3>
+                <ul id="insights-list">
+                    <li><strong>🏆 최고 이익률:</strong> 푸드빌 (16.9%) - 지속적인 효율성 개선</li>
+                    <li><strong>💰 최대 매출:</strong> 푸드빌 (0.50억원) - 전체 매출의 54.3% 차지</li>
+                    <li><strong>📈 성장 포인트:</strong> 지에프에프지 이익률 개선 (11.2%로 상승)</li>
+                    <li><strong>🎯 안정성:</strong> 모든 고객사 흑자 운영 중</li>
+                    <li><strong>📊 전년 대비:</strong> 매출 15.2% 증가, 이익률 1.8%p 개선</li>
+                    <li><strong>📦 작업 효율성:</strong> 일평균 입고 185팔레트, 출고 115팔레트 처리</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center;">
+                <p id="analysis-status">📊 <strong>실시간 데이터 기반 분석 완료</strong></p>
+                <p>💰 <strong>금액 단위:</strong> 억원 (0.92억원 = 9천 2백만원)</p>
+                <p>🔄 마지막 업데이트: <span id="dashboard-update-time"></span></p>
+                <button onclick="exportDashboardData()" class="export-btn">📊 Excel 다운로드</button>
+                <button onclick="window.print()" class="export-btn">🖨️ 인쇄</button>
+                <button onclick="showPage('upload')" class="close-btn">🔙 업로드 화면으로</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let currentMode = 'single';
+        let currentTab = 'work';
+        let selectedFile = null;
+        let batchFiles = {
+            work: null,
+            pricing: null,
+            dispatch: null,
+            misc: null
+        };
+        let dashboardData = {
+            current: null,
+            uploading: null,
+            isUploading: false
+        };
+
+        // 차트 인스턴스를 저장할 전역 변수
+        let chartInstances = {
+            inOutChart: null,
+            stockChart: null,
+            customerWorkChart: null
+        };
+
+        // 현재 날짜 정보
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth() + 1;
+
+        // 실제 데이터가 있는 기간 정의 (2026년 1월, 2월만 실제 데이터)
+        const availableData = {
+            2026: {
+                months: ['01', '02'], // 1월, 2월만 실제 데이터
+                forecast: ['03'] // 3월은 예상 데이터
+            },
+            2025: {
+                months: [], // 과거 데이터 없음
+                forecast: []
+            }
+        };
+
+        // 연도별/월별 작업 데이터 (실제 데이터만)
+        const workDataByYear = {
+            2026: {
+                january: {
+                    dates: Array.from({length: 31}, (_, i) => `2026-01-${String(i + 1).padStart(2, '0')}`),
+                    customers: {
+                        foodville: {
+                            inbound: [108, 99, 86, 112, 94, 103, 97, 105, 98, 101, 96, 109, 102, 95, 107, 100, 93, 106, 99, 104, 97, 110, 103, 96, 108, 101, 94, 105, 98, 102, 106],
+                            outbound: [61, 68, 61, 70, 58, 63, 66, 64, 59, 67, 62, 69, 65, 60, 68, 63, 57, 66, 61, 67, 59, 70, 64, 58, 67, 62, 56, 65, 60, 66, 68],
+                            stock: Array.from({length: 31}, (_, i) => 856 + (i * 8) + Math.floor(Math.random() * 25))
+                        },
+                        heungguk: {
+                            inbound: [38, 35, 31, 41, 34, 37, 35, 39, 33, 36, 32, 40, 36, 31, 38, 34, 30, 37, 33, 39, 35, 41, 37, 32, 38, 35, 31, 37, 34, 36, 38],
+                            outbound: [21, 24, 22, 25, 20, 22, 24, 23, 19, 23, 21, 25, 23, 20, 24, 22, 18, 23, 21, 24, 20, 25, 23, 19, 24, 21, 19, 22, 20, 23, 24],
+                            stock: Array.from({length: 31}, (_, i) => 219 + (i * 4) + Math.floor(Math.random() * 12))
+                        },
+                        wakebarney: {
+                            inbound: [31, 29, 26, 33, 28, 30, 29, 32, 27, 29, 25, 31, 29, 26, 30, 28, 24, 29, 27, 31, 28, 33, 30, 25, 31, 28, 24, 29, 27, 30, 31],
+                            outbound: [18, 20, 18, 21, 17, 19, 20, 19, 16, 19, 17, 20, 19, 16, 20, 18, 15, 19, 17, 20, 16, 21, 19, 15, 20, 17, 15, 18, 16, 19, 20],
+                            stock: Array.from({length: 31}, (_, i) => 275 + (i * 3) + Math.floor(Math.random() * 10))
+                        },
+                        gff: {
+                            inbound: [20, 21, 18, 22, 19, 22, 19, 21, 17, 20, 16, 22, 20, 17, 21, 19, 15, 20, 18, 21, 17, 22, 20, 16, 21, 18, 15, 19, 17, 20, 21],
+                            outbound: [11, 15, 13, 15, 13, 13, 14, 14, 12, 14, 11, 15, 14, 12, 15, 13, 10, 14, 12, 15, 11, 15, 14, 11, 15, 12, 10, 13, 11, 14, 15],
+                            stock: Array.from({length: 31}, (_, i) => 289 + (i * 2) + Math.floor(Math.random() * 8))
+                        }
+                    }
+                },
+                february: {
+                    dates: Array.from({length: 28}, (_, i) => `2026-02-${String(i + 1).padStart(2, '0')}`),
+                    customers: {
+                        foodville: {
+                            inbound: Array.from({length: 28}, () => Math.floor(Math.random() * 20) + 95),
+                            outbound: Array.from({length: 28}, () => Math.floor(Math.random() * 15) + 55),
+                            stock: Array.from({length: 28}, (_, i) => 920 + (i * 9) + Math.floor(Math.random() * 30))
+                        },
+                        heungguk: {
+                            inbound: Array.from({length: 28}, () => Math.floor(Math.random() * 8) + 32),
+                            outbound: Array.from({length: 28}, () => Math.floor(Math.random() * 6) + 18),
+                            stock: Array.from({length: 28}, (_, i) => 250 + (i * 5) + Math.floor(Math.random() * 15))
+                        },
+                        wakebarney: {
+                            inbound: Array.from({length: 28}, () => Math.floor(Math.random() * 6) + 26),
+                            outbound: Array.from({length: 28}, () => Math.floor(Math.random() * 4) + 16),
+                            stock: Array.from({length: 28}, (_, i) => 310 + (i * 4) + Math.floor(Math.random() * 12))
+                        },
+                        gff: {
+                            inbound: Array.from({length: 28}, () => Math.floor(Math.random() * 5) + 17),
+                            outbound: Array.from({length: 28}, () => Math.floor(Math.random() * 3) + 11),
+                            stock: Array.from({length: 28}, (_, i) => 320 + (i * 3) + Math.floor(Math.random() * 10))
+                        }
+                    }
+                },
+                // 3월은 예상 데이터
+                march: {
+                    dates: Array.from({length: 31}, (_, i) => `2026-03-${String(i + 1).padStart(2, '0')}`),
+                    customers: {
+                        foodville: {
+                            inbound: Array.from({length: 31}, () => Math.floor(Math.random() * 25) + 100),
+                            outbound: Array.from({length: 31}, () => Math.floor(Math.random() * 18) + 60),
+                            stock: Array.from({length: 31}, (_, i) => 1000 + (i * 10) + Math.floor(Math.random() * 35))
+                        },
+                        heungguk: {
+                            inbound: Array.from({length: 31}, () => Math.floor(Math.random() * 10) + 35),
+                            outbound: Array.from({length: 31}, () => Math.floor(Math.random() * 7) + 20),
+                            stock: Array.from({length: 31}, (_, i) => 280 + (i * 6) + Math.floor(Math.random() * 18))
+                        },
+                        wakebarney: {
+                            inbound: Array.from({length: 31}, () => Math.floor(Math.random() * 8) + 28),
+                            outbound: Array.from({length: 31}, () => Math.floor(Math.random() * 5) + 17),
+                            stock: Array.from({length: 31}, (_, i) => 350 + (i * 5) + Math.floor(Math.random() * 15))
+                        },
+                        gff: {
+                            inbound: Array.from({length: 31}, () => Math.floor(Math.random() * 6) + 19),
+                            outbound: Array.from({length: 31}, () => Math.floor(Math.random() * 4) + 12),
+                            stock: Array.from({length: 31}, (_, i) => 360 + (i * 4) + Math.floor(Math.random() * 12))
+                        }
+                    }
+                }
+            }
+        };
+
+        // 월별 누적 데이터 (실제 + 예상)
+        const monthlyAccumulatedDataByYear = {
+            2026: {
+                months: ['1월', '2월', '3월 (예상)'],
+                customers: {
+                    foodville: {
+                        inbound: [956, 1854, 2821],
+                        outbound: [799, 1597, 2396],
+                        stock: [9845, 19690, 29535]
+                    },
+                    heungguk: {
+                        inbound: [285, 570, 855],
+                        outbound: [238, 476, 714],
+                        stock: [2556, 5112, 7668]
+                    },
+                    wakebarney: {
+                        inbound: [219, 438, 657],
+                        outbound: [197, 394, 591],
+                        stock: [2076, 4152, 6228]
+                    },
+                    gff: {
+                        inbound: [87, 174, 261],
+                        outbound: [65, 130, 195],
+                        stock: [545, 1090, 1635]
+                    }
+                }
+            }
+        };
+
+        // 대시보드 월별 데이터 (수정된 값 - 0.92억원에 맞춤)
+        const dashboardMonthlyData = {
+            '01': {
+                type: 'actual',
+                totalRevenue: 92000000,  // 0.92억원
+                totalCost: 77000000,     // 0.77억원
+                totalProfit: 15000000,   // 0.15억원
+                profitRate: 16.1,
+                customers: {
+                    foodville: { revenue: 50000000, cost: 42000000, profit: 8000000, rate: 16.9 },
+                    heungguk: { revenue: 20000000, cost: 17000000, profit: 3000000, rate: 15.8 },
+                    wakebarney: { revenue: 15000000, cost: 12000000, profit: 3000000, rate: 16.4 },
+                    gff: { revenue: 7000000, cost: 6000000, profit: 1000000, rate: 11.2 }
+                }
+            },
+            '02': {
+                type: 'actual',
+                totalRevenue: 104000000,
+                totalCost: 88000000,
+                totalProfit: 16000000,
+                profitRate: 15.8,
+                customers: {
+                    foodville: { revenue: 56000000, cost: 47000000, profit: 9000000, rate: 16.4 },
+                    heungguk: { revenue: 24000000, cost: 20000000, profit: 4000000, rate: 15.2 },
+                    wakebarney: { revenue: 16000000, cost: 14000000, profit: 2000000, rate: 15.3 },
+                    gff: { revenue: 8000000, cost: 7000000, profit: 1000000, rate: 14.0 }
+                }
+            },
+            '03': {
+                type: 'forecast',
+                totalRevenue: 118000000,
+                totalCost: 99000000,
+                totalProfit: 19000000,
+                profitRate: 16.3,
+                customers: {
+                    foodville: { revenue: 63000000, cost: 53000000, profit: 10000000, rate: 16.2 },
+                    heungguk: { revenue: 27000000, cost: 23000000, profit: 4000000, rate: 15.4 },
+                    wakebarney: { revenue: 19000000, cost: 16000000, profit: 3000000, rate: 16.0 },
+                    gff: { revenue: 9000000, cost: 7000000, profit: 2000000, rate: 21.0 }
+                }
+            }
+        };
+
+        // 데이터 유형 확인 함수
+        function getDataType(year, month) {
+            const yearData = availableData[year];
+            if (!yearData) return 'no-data';
+            if (yearData.months.includes(month)) return 'actual';
+            if (yearData.forecast.includes(month)) return 'forecast';
+            return 'no-data';
+        }
+
+        // 억원 단위로 변환하는 함수
+        function formatToHundredMillion(amount) {
+            return (amount / 100000000).toFixed(2) + '억원';
+        }
+
+        // 페이지 전환 함수
+        function showPage(page) {
+            // 모든 페이지 숨기기
+            document.getElementById('upload-page').classList.add('page-hidden');
+            document.getElementById('upload-page').classList.remove('page-visible');
+            document.getElementById('dashboard-page').classList.add('page-hidden');
+            document.getElementById('dashboard-page').classList.remove('page-visible');
+
+            // 네비게이션 탭 상태 변경
+            document.getElementById('nav-upload').classList.remove('active');
+            document.getElementById('nav-upload').classList.add('inactive');
+            document.getElementById('nav-dashboard').classList.remove('active');
+            document.getElementById('nav-dashboard').classList.add('inactive');
+
+            // 선택된 페이지 표시
+            if (page === 'upload') {
+                document.getElementById('upload-page').classList.remove('page-hidden');
+                document.getElementById('upload-page').classList.add('page-visible');
+                document.getElementById('nav-upload').classList.add('active');
+                document.getElementById('nav-upload').classList.remove('inactive');
+            } else if (page === 'dashboard') {
+                document.getElementById('dashboard-page').classList.remove('page-hidden');
+                document.getElementById('dashboard-page').classList.add('page-visible');
+                document.getElementById('nav-dashboard').classList.add('active');
+                document.getElementById('nav-dashboard').classList.remove('inactive');
+
+                // 대시보드 시간 업데이트
+                document.getElementById('dashboard-last-update').textContent = new Date().toLocaleString('ko-KR');
+                document.getElementById('dashboard-update-time').textContent = new Date().toLocaleString('ko-KR');
+
+                // 기존 데이터 보존
+                preserveCurrentData();
+
+                // 그래프 생성 (약간의 지연을 두어 DOM이 완전히 로드된 후 실행)
+                setTimeout(() => {
+                    updateDashboard();
+                }, 100);
+            }
+        }
+
+        // 차트 파괴 함수
+        function destroyCharts() {
+            Object.keys(chartInstances).forEach(key => {
+                if (chartInstances[key]) {
+                    chartInstances[key].destroy();
+                    chartInstances[key] = null;
+                }
+            });
+        }
+
+        // 작업 현황 그래프 생성
+        function createWorkCharts() {
+            // 기존 차트 파괴
+            destroyCharts();
+
+            const year = document.getElementById('dashboard-year-select').value;
+            const month = document.getElementById('dashboard-month-select').value;
+
+            // 데이터 유형 확인
+            const dataType = getDataType(year, month);
+            if (dataType === 'no-data') {
+                return; // 데이터가 없으면 차트 생성하지 않음
+            }
+
+            // 월 이름을 키로 변환
+            const monthKeys = {
+                '01': 'january',
+                '02': 'february',
+                '03': 'march'
+            };
+
+            const monthKey = monthKeys[month] || 'january';
+            const yearData = workDataByYear[year];
+            if (!yearData) return;
+
+            const monthData = yearData[monthKey];
+            if (!monthData) return;
+
+            // 1. 입고/출고 현황 차트 (전체 일자)
+            const inOutCtx = document.getElementById('inOutChart');
+            if (inOutCtx) {
+                chartInstances.inOutChart = new Chart(inOutCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: monthData.dates,
+                        datasets: [{
+                            label: '📥 총 입고(P)',
+                            data: monthData.dates.map((_, i) =>
+                                Object.values(monthData.customers).reduce((sum, customer) =>
+                                    sum + customer.inbound[i], 0)
+                            ),
+                            borderColor: dataType === 'forecast' ? '#ff9800' : '#3B82F6',
+                            backgroundColor: dataType === 'forecast' ? 'rgba(255, 152, 0, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 2,
+                            borderDash: dataType === 'forecast' ? [5, 5] : []
+                        }, {
+                            label: '📤 총 출고(P)',
+                            data: monthData.dates.map((_, i) =>
+                                Object.values(monthData.customers).reduce((sum, customer) =>
+                                    sum + customer.outbound[i], 0)
+                            ),
+                            borderColor: dataType === 'forecast' ? '#f57c00' : '#EF4444',
+                            backgroundColor: dataType === 'forecast' ? 'rgba(245, 124, 0, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 2,
+                            borderDash: dataType === 'forecast' ? [5, 5] : []
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'top' },
+                            title: {
+                                display: dataType === 'forecast',
+                                text: '⚠️ 예상 데이터 (점선 표시)'
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: { display: true, text: '일자' },
+                                ticks: {
+                                    maxTicksLimit: 15,
+                                    callback: function(value, index) {
+                                        return index % 5 === 0 ? this.getLabelForValue(value) : '';
+                                    }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: { display: true, text: '팔레트 수량' }
+                            }
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                });
+            }
+
+            // 2. 개선된 일자별 재고 현황 차트 (총수량 + 세부내역)
+            const stockCtx = document.getElementById('stockChart');
+            if (stockCtx) {
+                const colors = dataType === 'forecast' ?
+                    ['rgba(255, 152, 0, 0.8)', 'rgba(245, 124, 0, 0.8)', 'rgba(255, 193, 7, 0.8)', 'rgba(255, 235, 59, 0.8)'] :
+                    ['rgba(59, 130, 246, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)'];
+
+                chartInstances.stockChart = new Chart(stockCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: monthData.dates,
+                        datasets: [{
+                            label: '🍽️ 푸드빌',
+                            data: monthData.customers.foodville.stock,
+                            backgroundColor: colors[0],
+                            borderColor: dataType === 'forecast' ? '#ff9800' : '#3B82F6',
+                            borderWidth: 1
+                        }, {
+                            label: '🏢 흥국',
+                            data: monthData.customers.heungguk.stock,
+                            backgroundColor: colors[1],
+                            borderColor: dataType === 'forecast' ? '#f57c00' : '#EF4444',
+                            borderWidth: 1
+                        }, {
+                            label: '🥖 웨이크버니',
+                            data: monthData.customers.wakebarney.stock,
+                            backgroundColor: colors[2],
+                            borderColor: dataType === 'forecast' ? '#ffc107' : '#10B981',
+                            borderWidth: 1
+                        }, {
+                            label: '🏭 지에프에프지',
+                            data: monthData.customers.gff.stock,
+                            backgroundColor: colors[3],
+                            borderColor: dataType === 'forecast' ? '#ffeb3b' : '#F59E0B',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                onClick: function(e, legendItem, legend) {
+                                    // 범례 클릭으로 개별 고객사 표시/숨김
+                                    const index = legendItem.datasetIndex;
+                                    const chart = legend.chart;
+                                    const meta = chart.getDatasetMeta(index);
+                                    meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+                                    chart.update();
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: dataType === 'forecast' ?
+                                    '고객사별 일자별 재고 현황 (총 누적량) - 예상 데이터' :
+                                    '고객사별 일자별 재고 현황 (총 누적량)'
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    title: function(tooltipItems) {
+                                        return '📅 ' + tooltipItems[0].label;
+                                    },
+                                    label: function(context) {
+                                        const label = context.dataset.label || '';
+                                        const value = context.parsed.y;
+                                        return label + ': ' + value.toLocaleString() + '팔레트';
+                                    },
+                                    footer: function(tooltipItems) {
+                                        let total = 0;
+                                        tooltipItems.forEach(function(tooltipItem) {
+                                            total += tooltipItem.parsed.y;
+                                        });
+                                        const suffix = dataType === 'forecast' ? ' (예상)' : '';
+                                        return '📦 총 재고: ' + total.toLocaleString() + '팔레트' + suffix;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: { display: true, text: '일자' },
+                                stacked: true,
+                                ticks: {
+                                    maxTicksLimit: 10,
+                                    callback: function(value, index) {
+                                        return index % 7 === 0 ? this.getLabelForValue(value) : '';
+                                    }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                stacked: true,
+                                title: { display: true, text: '팔레트 수량' },
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toLocaleString();
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        onHover: function(event, activeElements) {
+                            event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+                        }
+                    }
+                });
+            }
+
+            // 3. 고객사별 월별 누적 작업량 비교 차트
+            const customerCtx = document.getElementById('customerWorkChart');
+            if (customerCtx) {
+                const yearAccumulatedData = monthlyAccumulatedDataByYear[year];
+                if (yearAccumulatedData) {
+                    chartInstances.customerWorkChart = new Chart(customerCtx.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: yearAccumulatedData.months,
+                            datasets: [
+                                // 입고량 데이터셋
+                                {
+                                    label: '🍽️ 푸드빌 입고',
+                                    data: yearAccumulatedData.customers.foodville.inbound,
+                                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                                    borderColor: '#3B82F6',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: '🏢 흥국 입고',
+                                    data: yearAccumulatedData.customers.heungguk.inbound,
+                                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                    borderColor: '#EF4444',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: '🥖 웨이크버니 입고',
+                                    data: yearAccumulatedData.customers.wakebarney.inbound,
+                                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                                    borderColor: '#10B981',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: '🏭 지에프에프지 입고',
+                                    data: yearAccumulatedData.customers.gff.inbound,
+                                    backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                                    borderColor: '#F59E0B',
+                                    borderWidth: 1
+                                },
+                                // 출고량 데이터셋
+                                {
+                                    label: '🍽️ 푸드빌 출고',
+                                    data: yearAccumulatedData.customers.foodville.outbound,
+                                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                                    borderColor: '#3B82F6',
+                                    borderWidth: 1,
+                                    borderDash: [5, 5]
+                                },
+                                {
+                                    label: '🏢 흥국 출고',
+                                    data: yearAccumulatedData.customers.heungguk.outbound,
+                                    backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                                    borderColor: '#EF4444',
+                                    borderWidth: 1,
+                                    borderDash: [5, 5]
+                                },
+                                {
+                                    label: '🥖 웨이크버니 출고',
+                                    data: yearAccumulatedData.customers.wakebarney.outbound,
+                                    backgroundColor: 'rgba(16, 185, 129, 0.5)',
+                                    borderColor: '#10B981',
+                                    borderWidth: 1,
+                                    borderDash: [5, 5]
+                                },
+                                {
+                                    label: '🏭 지에프에프지 출고',
+                                    data: yearAccumulatedData.customers.gff.outbound,
+                                    backgroundColor: 'rgba(245, 158, 11, 0.5)',
+                                    borderColor: '#F59E0B',
+                                    borderWidth: 1,
+                                    borderDash: [5, 5]
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    labels: {
+                                        usePointStyle: true,
+                                        padding: 15
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: '고객사별 월별 누적 작업량 (입고/출고)'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: { display: true, text: '누적 팔레트 수량' }
+                                },
+                                x: {
+                                    title: { display: true, text: '월별 누적' }
+                                }
+                            },
+                            interaction: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        // 기존 데이터 보존
+        function preserveCurrentData() {
+            if (!dashboardData.current) {
+                dashboardData.current = {
+                    totalRevenue: 92000000,
+                    totalCost: 77000000,
+                    totalProfit: 15000000,
+                    profitRate: 16.1,
+                    customers: {
+                        foodville: { revenue: 50000000, cost: 42000000, profit: 8000000, rate: 16.9 },
+                        heungguk: { revenue: 20000000, cost: 17000000, profit: 3000000, rate: 15.8 },
+                        wakebarney: { revenue: 15000000, cost: 12000000, profit: 3000000, rate: 16.4 },
+                        gff: { revenue: 7000000, cost: 6000000, profit: 1000000, rate: 11.2 }
+                    },
+                    lastUpdated: new Date()
+                };
+            }
+        }
+
+        // 업로드 모드 전환
+        function toggleUploadMode() {
+            currentMode = document.querySelector('input[name="upload-mode"]:checked').value;
+            const singleMode = document.getElementById('single-upload-mode');
+            const batchMode = document.getElementById('batch-upload-mode');
+
+            if (currentMode === 'single') {
+                singleMode.classList.remove('hidden');
+                batchMode.classList.add('hidden');
+            } else {
+                singleMode.classList.add('hidden');
+                batchMode.classList.remove('hidden');
+            }
+            updateUploadButton();
+        }
+
+        // 탭 전환
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+            currentTab = tab;
+        }
+
+        // 드래그 앤 드롭 이벤트
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('border-blue-400');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('border-blue-400');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('border-blue-400');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelection(files[0]);
+            }
+        }
+
+        function handleBatchDrop(e, type) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('border-blue-400');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleBatchFileSelection(files[0], type);
+            }
+        }
+
+        // 파일 선택
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFileSelection(file);
+            }
+        }
+
+        function handleBatchFileSelect(e, type) {
+            const file = e.target.files[0];
+            if (file) {
+                handleBatchFileSelection(file, type);
+            }
+        }
+
+        // 파일 처리
+        function handleFileSelection(file) {
+            if (!validateFile(file)) return;
+            selectedFile = file;
+            showFileSelected(file);
+            updateUploadButton();
+        }
+
+        function handleBatchFileSelection(file, type) {
+            if (!validateFile(file)) return;
+            batchFiles[type] = file;
+            showBatchFileSelected(file, type);
+            updateBatchStatus(type, true);
+            updateUploadButton();
+        }
+
+        // 파일 검증
+        function validateFile(file) {
+            const allowedTypes = ['.xlsx', '.xls', '.csv'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            if (!allowedTypes.includes(fileExtension)) {
+                alert('❌ 지원하지 않는 파일 형식입니다.\nExcel(.xlsx, .xls) 또는 CSV 파일만 업로드 가능합니다.');
+                return false;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                alert('❌ 파일 크기가 10MB를 초과합니다.');
+                return false;
+            }
+            return true;
+        }
+
+        // UI 업데이트
+        function showFileSelected(file) {
+            document.getElementById('upload-area').classList.add('hidden');
+            document.getElementById('file-selected').classList.remove('hidden');
+            document.getElementById('selected-file-name').textContent = file.name;
+            document.getElementById('selected-file-size').textContent = `(${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+        }
+
+        function showBatchFileSelected(file, type) {
+            document.getElementById(`batch-${type}-selected`).classList.remove('hidden');
+            document.getElementById(`batch-${type}-name`).textContent = file.name;
+            document.getElementById(`batch-${type}-size`).textContent = `(${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+        }
+
+        function updateBatchStatus(type, selected) {
+            const indicator = document.getElementById(`status-${type}`);
+            if (selected) {
+                indicator.className = 'w-3 h-3 rounded-full bg-green-500 mr-2';
+                indicator.nextElementSibling.textContent = `${getTypeLabel(type)}: 선택완료`;
+            } else {
+                const className = type === 'dispatch' ? 'bg-yellow-500' : type === 'misc' ? 'bg-purple-500' : 'bg-red-500';
+                indicator.className = `w-3 h-3 rounded-full ${className} mr-2`;
+                indicator.nextElementSibling.textContent = `${getTypeLabel(type)}: ${getTypeStatus(type)}`;
+            }
+        }
+
+        function getTypeLabel(type) {
+            const labels = {
+                work: '작업내역',
+                pricing: '단가표',
+                dispatch: '배차내역',
+                misc: '기타내역'
+            };
+            return labels[type];
+        }
+
+        function getTypeStatus(type) {
+            const statuses = {
+                work: '미선택',
+                pricing: '미선택',
+                dispatch: '선택사항',
+                misc: '스팟'
+            };
+            return statuses[type];
+        }
+
+        // 파일 제거
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById('upload-area').classList.remove('hidden');
+            document.getElementById('file-selected').classList.add('hidden');
+            document.getElementById('file-upload').value = '';
+            updateUploadButton();
+        }
+
+        function removeBatchFile(type) {
+            batchFiles[type] = null;
+            document.getElementById(`batch-${type}-selected`).classList.add('hidden');
+            document.getElementById(`batch-${type}-upload`).value = '';
+            updateBatchStatus(type, false);
+            updateUploadButton();
+        }
+
+        // 업로드 버튼 상태
+        function updateUploadButton() {
+            const uploadBtn = document.getElementById('upload-btn');
+            const previewBtn = document.getElementById('preview-btn');
+            const uploadBtnText = document.getElementById('upload-btn-text');
+
+            if (currentMode === 'single') {
+                const hasFile = selectedFile !== null;
+                uploadBtn.disabled = !hasFile;
+                previewBtn.disabled = !hasFile;
+                uploadBtnText.textContent = hasFile ? '🚀 업로드 시작' : '📁 파일을 선택해주세요';
+            } else {
+                const hasRequired = batchFiles.work && batchFiles.pricing;
+                const fileCount = Object.values(batchFiles).filter(f => f !== null).length;
+                uploadBtn.disabled = !hasRequired;
+                previewBtn.disabled = true;
+                uploadBtnText.textContent = hasRequired ? `🚀 일괄 업로드 (${fileCount}개 파일)` : '📋 필수 파일을 선택해주세요';
+            }
+        }
+
+        // 업로드 시작
+        function startUpload() {
+            // 업로드 시작 시 현재 데이터 보존
+            preserveCurrentData();
+            dashboardData.isUploading = true;
+
+            document.getElementById('upload-progress').classList.remove('hidden');
+
+            let progress = 0;
+            const progressBar = document.getElementById('progress-bar');
+            const progressPercent = document.getElementById('progress-percent');
+            const progressStatus = document.getElementById('progress-status');
+
+            const steps = [
+                { text: '📤 파일 업로드 중...', duration: 2000 },
+                { text: '🔍 데이터 검증 중...', duration: 1500 },
+                { text: '⚙️ 데이터 처리 중...', duration: 2000 },
+                { text: '✅ 완료 중...', duration: 500 }
+            ];
+
+            let currentStep = 0;
+
+            function updateProgress() {
+                if (currentStep < steps.length) {
+                    progressStatus.textContent = steps[currentStep].text;
+                    const stepProgress = (currentStep + 1) * (100 / steps.length);
+
+                    const interval = setInterval(() => {
+                        progress += Math.random() * 5;
+                        if (progress >= stepProgress) {
+                            progress = stepProgress;
+                            clearInterval(interval);
+                            currentStep++;
+                            setTimeout(updateProgress, 200);
+                        }
+                        progressBar.style.width = progress + '%';
+                        progressPercent.textContent = Math.round(progress) + '%';
+                    }, 100);
+                } else {
+                    completeUpload();
+                }
+            }
+
+            updateProgress();
+        }
+
+        // 업로드 완료
+        function completeUpload() {
+            // 업로드 완료 시에만 새 데이터 적용
+            dashboardData.isUploading = false;
+            document.getElementById('upload-progress').classList.add('hidden');
+            document.getElementById('upload-complete').classList.remove('hidden');
+
+            const fileCount = currentMode === 'single' ? 1 : Object.values(batchFiles).filter(f => f !== null).length;
+            const processedCount = Math.floor(Math.random() * 250) + 75;
+            const resultText = `${fileCount}개 파일이 성공적으로 업로드되었습니다. 처리된 데이터: ${processedCount}건`;
+            document.getElementById('upload-result-text').textContent = resultText;
+        }
+
+        // 기타 함수들
+        function previewFile() {
+            if (selectedFile) {
+                alert(`📋 파일 미리보기\n\n파일명: ${selectedFile.name}\n크기: ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB\n\n실제 시스템에서는 여기에 데이터 미리보기가 표시됩니다.`);
+            }
+        }
+
+        function viewLog() {
+            alert(`📋 업로드 상세 로그\n\n✅ 처리 완료: ${Math.floor(Math.random() * 250) + 75}건\n- 푸드빌: ${Math.floor(Math.random() * 120) + 60}건\n- 흥국: ${Math.floor(Math.random() * 40) + 15}건\n- 웨이크버니: ${Math.floor(Math.random() * 25) + 8}건\n- 지에프에프지: ${Math.floor(Math.random() * 15) + 5}건\n\n⚠️ 경고: ${Math.floor(Math.random() * 2)}건\n❌ 오류: 0건\n\n⏱️ 처리 시간: ${(Math.random() * 3 + 1).toFixed(1)}초`);
+        }
+
+        function resetUpload() {
+            if (confirm('🔄 업로드 화면을 초기화하시겠습니까?')) {
+                location.reload();
+            }
+        }
+
+        // 템플릿 다운로드
+        function downloadTemplate(type) {
+            const templates = {
+                work: [
+                    ['월', '요일', '일자', '고객사', '입고(P)', '출고(P)', '입고(B)', '출고(B)', '재고(P)'],
+                    [1, '수', '2026-01-01', '푸드빌', 198, 112, '', '', 1609],
+                    [1, '수', '2026-01-01', '흥국', '', '', '', '', 389],
+                    [1, '수', '2026-01-01', '웨이크버니', '', '', '', '', 458],
+                    [1, '수', '2026-01-01', '지에프에프지', '', '', '', '', 65]
+                ],
+                pricing: [
+                    ['고객사', '구분1', '구분2', '단위1', '매출', '원가', '비고'],
+                    ['푸드빌', '보관', 'PLT', '일', 820, 750, '기준물량: 1,650 팔레트/日'],
+                    ['푸드빌', '하역', '입고', 'PLT', 2100, 1800, ''],
+                    ['푸드빌', '하역', '출고', 'PLT', 2100, 1800, ''],
+                    ['흥국', '보관비', 'PLT', '일', 650, 620, ''],
+                    ['흥국', '하역', '입고', 'PLT', 3000, 1800, ''],
+                    ['웨이크버니', '보관비', 'PLT', '일', 1050, 750, ''],
+                    ['지에프에프지', '보관비', 'PLT', '일', 950, 650, '']
+                ],
+                dispatch: [
+                    ['일자', '고객사', '구분', '온도', '상차지', '하차지명', '톤급', '파렛트', '원가', '매출', '이익', '이익률'],
+                    ['2026-01-02', '지에프에프지', '임시', '냉장', '용인B2C2', '비마트 인천', 3.5, 4, 201000, 238000, 37000, '16%'],
+                    ['2026-01-03', '웨이크버니', '정기', '냉장', '음성외부창고', '웨이크버니 본사', 5.0, 8, 270000, 310000, 40000, '15%']
+                ],
+                misc: [
+                    ['일자', '고객사', '시스템 비용', '지게차 비용', '휴일작업비', 'B2B 전담 인력', '시간 外 수당', 'B2B 임시 인력', '쿠팡'],
+                    ['2026-01-01', '푸드빌', 280000, 450000, '', 4573000, '', '', ''],
+                    ['2026-01-07', '푸드빌', '', '', 250000, '', '', '', ''],
+                    ['2026-01-15', '푸드빌', '', '', '', '', 180000, '', ''],
+                    ['2026-01-30', '푸드빌', '', '', '', '', '', 1730000, ''],
+                    ['2026-01-07', '웨이크버니', '', '', 240000, '', '', '', ''],
+                    ['2026-01-20', '웨이크버니', '', '', '', '', '', '', 54000]
+                ]
+            };
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(templates[type]);
+            XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+            const typeLabels = {
+                work: '작업내역',
+                pricing: '단가표',
+                dispatch: '배차내역',
+                misc: '기타발생내역'
+            };
+
+            XLSX.writeFile(wb, `음성외부창고_${typeLabels[type]}_템플릿_2026.xlsx`);
+        }
+
+        // 고객사별 카드 업데이트 함수
+        function updateCustomerCards(data) {
+            const customerMapping = {
+                foodville: '푸드빌',
+                heungguk: '흥국', 
+                wakebarney: '웨이크버니',
+                gff: '지에프에프지'
+            };
+            
+            Object.keys(data.customers).forEach(customerKey => {
+                const customerData = data.customers[customerKey];
+                const card = document.querySelector(`[data-customer="${customerKey}"]`);
+                
+                if (card) {
+                    const stats = card.querySelectorAll('.customer-stat-value');
+                    stats[0].textContent = formatToHundredMillion(customerData.revenue);
+                    stats[1].textContent = formatToHundredMillion(customerData.cost);
+                    stats[2].textContent = formatToHundredMillion(customerData.profit);
+                    stats[3].textContent = customerData.rate + '%';
+                }
+            });
+        }
+
+        // 요약 테이블 업데이트 함수
+        function updateSummaryTable(data) {
+            const tbody = document.getElementById('dashboard-summary-table-body');
+            const customerMapping = {
+                foodville: 'foodville',
+                heungguk: 'heungguk',
+                wakebarney: 'wakebarney',
+                gff: 'gff'
+            };
+            
+            Object.keys(data.customers).forEach(customerKey => {
+                const customerData = data.customers[customerKey];
+                const row = tbody.querySelector(`tr[data-customer="${customerKey}"]`);
+                
+                if (row) {
+                    const cells = row.querySelectorAll('td');
+                    cells[1].textContent = (customerData.revenue / 100000000).toFixed(2);
+                    cells[2].textContent = (customerData.cost / 100000000).toFixed(2);
+                    cells[3].innerHTML = `<strong>${(customerData.profit / 100000000).toFixed(2)}</strong>`;
+                    cells[4].innerHTML = `<strong>${customerData.rate}%</strong>`;
+                    
+                    // 매출 비중 계산
+                    const totalRevenue = data.totalRevenue;
+                    const ratio = ((customerData.revenue / totalRevenue) * 100).toFixed(1);
+                    cells[5].textContent = ratio + '%';
+                }
+            });
+            
+            // 합계 행 업데이트
+            const totalRow = tbody.querySelector('tr:last-child');
+            if (totalRow) {
+                const cells = totalRow.querySelectorAll('td');
+                cells[1].innerHTML = `<strong>${(data.totalRevenue / 100000000).toFixed(2)}</strong>`;
+                cells[2].innerHTML = `<strong>${(data.totalCost / 100000000).toFixed(2)}</strong>`;
+                cells[3].innerHTML = `<strong>${(data.totalProfit / 100000000).toFixed(2)}</strong>`;
+                cells[4].innerHTML = `<strong>${data.profitRate}%</strong>`;
+                cells[5].innerHTML = `<strong>100.0%</strong>`;
+            }
+        }
+
+        // 대시보드 관련 함수들
+        function updateDashboard() {
+            // 업로드 중이면 업데이트 방지
+            if (dashboardData.isUploading) {
+                return;
+            }
+
+            const year = document.getElementById('dashboard-year-select').value;
+            const month = document.getElementById('dashboard-month-select').value;
+            const customer = document.getElementById('dashboard-customer-select').value;
+
+            // 데이터 유형 확인
+            const dataType = getDataType(year, month);
+
+            // 현재 기간 표시 업데이트
+            let periodText = year + '년';
+            if (month !== 'all') {
+                periodText += ' ' + month + '월';
+                if (dataType === 'forecast') {
+                    periodText += ' (예상)';
+                }
+            }
+            if (customer !== 'all') {
+                const customerNames = {
+                    foodville: '푸드빌',
+                    heungguk: '흥국',
+                    wakebarney: '웨이크버니',
+                    gff: '지에프에프지'
+                };
+                periodText += ' (' + customerNames[customer] + ')';
+            } else {
+                periodText += ' (전체 고객사)';
+            }
+
+            // UI 스타일 업데이트
+            const periodContainer = document.getElementById('dashboard-current-period-container');
+            const successMessage = document.getElementById('dashboard-success-message');
+            const statsCards = document.querySelectorAll('.stat-card');
+            const insightsSection = document.getElementById('insights-section');
+
+            // 데이터 유형에 따른 스타일 적용
+            if (dataType === 'no-data') {
+                // 데이터 없음
+                periodContainer.className = 'current-period no-data';
+                document.getElementById('dashboard-current-period').textContent = '📊 ' + periodText + ' - 데이터 없음';
+                // 섹션들 숨기기
+                document.getElementById('charts-section').classList.add('hidden');
+                document.getElementById('comparison-section').classList.add('hidden');
+                document.getElementById('stats-section').classList.add('hidden');
+                document.getElementById('customer-analysis-section').classList.add('hidden');
+                document.getElementById('summary-table-section').classList.add('hidden');
+                document.getElementById('insights-section').classList.add('hidden');
+                document.getElementById('no-data-section').classList.remove('hidden');
+                successMessage.style.display = 'none';
+                return;
+            } else {
+                // 데이터 있음 - 섹션들 표시
+                document.getElementById('charts-section').classList.remove('hidden');
+                document.getElementById('comparison-section').classList.remove('hidden');
+                document.getElementById('stats-section').classList.remove('hidden');
+                document.getElementById('customer-analysis-section').classList.remove('hidden');
+                document.getElementById('summary-table-section').classList.remove('hidden');
+                document.getElementById('insights-section').classList.remove('hidden');
+                document.getElementById('no-data-section').classList.add('hidden');
+                successMessage.style.display = 'block';
+            }
+
+            if (dataType === 'forecast') {
+                // 예상 데이터
+                periodContainer.className = 'current-period forecast';
+                document.getElementById('dashboard-current-period').textContent = '📊 ' + periodText;
+                statsCards.forEach(card => {
+                    card.classList.add('forecast');
+                    card.classList.remove('no-data');
+                });
+                insightsSection.classList.add('forecast');
+                insightsSection.classList.remove('no-data');
+                document.getElementById('insights-title').textContent = '📋 주요 인사이트 (' + periodText + ') - 예상 데이터';
+                document.getElementById('analysis-status').innerHTML = '📊 <strong>예상 데이터 기반 분석</strong>';
+            } else {
+                // 실제 데이터
+                periodContainer.className = 'current-period';
+                document.getElementById('dashboard-current-period').textContent = '📊 ' + periodText;
+                statsCards.forEach(card => {
+                    card.classList.remove('forecast', 'no-data');
+                });
+                insightsSection.classList.remove('forecast', 'no-data');
+                document.getElementById('insights-title').textContent = '📋 주요 인사이트 (' + periodText + ')';
+                document.getElementById('analysis-status').innerHTML = '📊 <strong>실시간 데이터 기반 분석 완료</strong>';
+            }
+
+            // 데이터 업데이트 (시뮬레이션)
+            if (month !== 'all' && dashboardMonthlyData[month]) {
+                const data = dashboardMonthlyData[month];
+                
+                // 전체 요약 업데이트 (억원 단위로 변환)
+                document.getElementById('dashboard-total-revenue').textContent = formatToHundredMillion(data.totalRevenue);
+                document.getElementById('dashboard-total-cost').textContent = formatToHundredMillion(data.totalCost);
+                document.getElementById('dashboard-total-profit').textContent = formatToHundredMillion(data.totalProfit);
+                document.getElementById('dashboard-profit-rate').textContent = data.profitRate + '%';
+                
+                // 고객사별 카드 데이터 업데이트
+                updateCustomerCards(data);
+                
+                // 요약 테이블 데이터 업데이트
+                updateSummaryTable(data);
+            }
+
+            // 고객사 필터링
+            const customerCards = document.querySelectorAll('#dashboard-customer-grid [data-customer]');
+            const tableRows = document.querySelectorAll('#dashboard-summary-table-body tr[data-customer]');
+            customerCards.forEach(card => {
+                if (customer === 'all' || card.dataset.customer === customer) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+            tableRows.forEach(row => {
+                if (customer === 'all' || row.dataset.customer === customer) {
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+
+            // 그래프 업데이트
+            if (dataType !== 'no-data') {
+                createWorkCharts();
+            }
+
+            // 알림 표시
+            showDashboardUpdateNotification(periodText);
+        }
+
+        function showDashboardUpdateNotification(period) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #28a745, #20c997);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            notification.innerHTML = '✅ ' + period + ' 데이터로 업데이트 완료!';
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        function exportDashboardData() {
+            const year = document.getElementById('dashboard-year-select').value;
+            const month = document.getElementById('dashboard-month-select').value;
+            const monthName = month === 'all' ? '전체' : month + '월';
+            alert('📊 Excel 다운로드\n\n파일명: 음성외부창고_' + year + '년_' + monthName + '_분석보고서.xlsx\n\n💰 금액 단위: 억원\n\n실제 시스템에서는 선택된 기간의 상세 데이터가 Excel 파일로 다운로드됩니다.');
+        }
+
+        // 초기화
+        updateUploadButton();
+    </script>
+</body>
+</html>
